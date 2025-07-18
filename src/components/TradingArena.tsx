@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Zap, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -5,6 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import PriceChart from './PriceChart';
 import AmountInput from './AmountInput';
 import CapitalDisplay from './CapitalDisplay';
+import WalletConnect from './WalletConnect';
 
 const TradingArena = () => {
   const [capital, setCapital] = useState(10000);
@@ -87,24 +89,66 @@ const TradingArena = () => {
       )}
 
       {/* Header */}
-      <div className="text-center py-8 border-b border-gray-800">
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
-          SUDO THRUST
-        </h1>
-        <p className="text-gray-400 mt-2 text-lg">Command the Market</p>
+      <div className="flex justify-between items-center py-8 px-6 border-b border-gray-800">
+        <div className="text-center flex-1">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
+            SUDO THRUST
+          </h1>
+          <p className="text-gray-400 mt-2 text-lg">Command the Market</p>
+        </div>
+        <div className="absolute top-8 right-6">
+          <WalletConnect />
+        </div>
       </div>
 
       {/* Main Layout */}
       <div className="grid grid-cols-12 gap-6 p-6 min-h-[calc(100vh-140px)]">
-        {/* Left Panel - Trading Controls */}
+        {/* Left Panel - Market Stats and Recent Trades */}
         <div className="col-span-12 lg:col-span-3 space-y-6">
-          {/* Capital Display */}
-          <CapitalDisplay 
-            amount={tradeAmount}
-            leverage={leverage[0]}
-            position={position}
-            pnl={pnl}
-          />
+          {/* Market Stats */}
+          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 space-y-4">
+            <h3 className="text-lg font-bold text-center text-gray-300">Market Stats</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Volume 24h</span>
+                <span className="text-white font-bold">$2.4B</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Market Cap</span>
+                <span className="text-white font-bold">$980B</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Volatility</span>
+                <span className="text-yellow-400 font-bold">High</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Fear & Greed</span>
+                <span className="text-orange-400 font-bold">72 (Greed)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Trades */}
+          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+            <h3 className="text-lg font-bold text-center text-gray-300 mb-4">Recent Thrusts</h3>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-green-400">↗ UP</span>
+                <span className="text-gray-400">$50,120</span>
+                <span className="text-green-400">+$245</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-red-400">↙ DOWN</span>
+                <span className="text-gray-400">$49,980</span>
+                <span className="text-red-400">-$89</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-green-400">↗ UP</span>
+                <span className="text-gray-400">$49,850</span>
+                <span className="text-green-400">+$156</span>
+              </div>
+            </div>
+          </div>
 
           {/* Available Capital */}
           <div className="bg-gradient-to-r from-yellow-900/20 to-yellow-800/20 rounded-2xl p-6 border border-yellow-600/30">
@@ -113,6 +157,37 @@ const TradingArena = () => {
               <p className="text-2xl font-bold text-yellow-300">{formatCurrency(capital)}</p>
             </div>
           </div>
+        </div>
+
+        {/* Center Panel - Price Chart */}
+        <div className="col-span-12 lg:col-span-6 space-y-6">
+          {/* Market Price Header */}
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700">
+            <div className="text-center">
+              <p className="text-gray-400 text-sm mb-2">BTC/USD</p>
+              <p className="text-4xl font-bold text-white">{formatCurrency(marketPrice)}</p>
+              <div className="flex justify-center items-center mt-2 space-x-4">
+                <span className="text-green-400 text-sm">24h High: $55,000</span>
+                <span className="text-red-400 text-sm">24h Low: $45,000</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Enhanced Price Chart */}
+          <div className="h-96">
+            <PriceChart currentPrice={marketPrice} />
+          </div>
+        </div>
+
+        {/* Right Panel - Trading Controls and Action Buttons */}
+        <div className="col-span-12 lg:col-span-3 space-y-6">
+          {/* Capital Display */}
+          <CapitalDisplay 
+            amount={tradeAmount}
+            leverage={leverage[0]}
+            position={position}
+            pnl={pnl}
+          />
 
           {/* Trade Controls - Only show when not in position */}
           {!position && (
@@ -164,38 +239,6 @@ const TradingArena = () => {
             </div>
           )}
 
-          {/* Flash Mode Button */}
-          <Button
-            className="w-full h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all duration-200"
-            variant="outline"
-          >
-            <Zap className="mr-2 h-5 w-5" />
-            Flash Mode - 2x Power (15s) - $0.10
-          </Button>
-        </div>
-
-        {/* Center Panel - Price Chart */}
-        <div className="col-span-12 lg:col-span-6 space-y-6">
-          {/* Market Price Header */}
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700">
-            <div className="text-center">
-              <p className="text-gray-400 text-sm mb-2">BTC/USD</p>
-              <p className="text-4xl font-bold text-white">{formatCurrency(marketPrice)}</p>
-              <div className="flex justify-center items-center mt-2 space-x-4">
-                <span className="text-green-400 text-sm">24h High: $55,000</span>
-                <span className="text-red-400 text-sm">24h Low: $45,000</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Enhanced Price Chart */}
-          <div className="h-96">
-            <PriceChart currentPrice={marketPrice} />
-          </div>
-        </div>
-
-        {/* Right Panel - Action Buttons */}
-        <div className="col-span-12 lg:col-span-3 space-y-6">
           {/* Action Buttons */}
           <div className="space-y-4">
             {!position ? (
@@ -228,50 +271,14 @@ const TradingArena = () => {
             )}
           </div>
 
-          {/* Market Stats */}
-          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 space-y-4">
-            <h3 className="text-lg font-bold text-center text-gray-300">Market Stats</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Volume 24h</span>
-                <span className="text-white font-bold">$2.4B</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Market Cap</span>
-                <span className="text-white font-bold">$980B</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Volatility</span>
-                <span className="text-yellow-400 font-bold">High</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Fear & Greed</span>
-                <span className="text-orange-400 font-bold">72 (Greed)</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Trades */}
-          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-            <h3 className="text-lg font-bold text-center text-gray-300 mb-4">Recent Thrusts</h3>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-green-400">↗ UP</span>
-                <span className="text-gray-400">$50,120</span>
-                <span className="text-green-400">+$245</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-red-400">↙ DOWN</span>
-                <span className="text-gray-400">$49,980</span>
-                <span className="text-red-400">-$89</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-green-400">↗ UP</span>
-                <span className="text-gray-400">$49,850</span>
-                <span className="text-green-400">+$156</span>
-              </div>
-            </div>
-          </div>
+          {/* Flash Mode Button */}
+          <Button
+            className="w-full h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all duration-200"
+            variant="outline"
+          >
+            <Zap className="mr-2 h-5 w-5" />
+            Flash Mode - 2x Power (15s) - $0.10
+          </Button>
         </div>
       </div>
     </div>
