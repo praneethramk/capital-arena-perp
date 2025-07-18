@@ -2,10 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Zap, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import PriceChart from './PriceChart';
+import AmountInput from './AmountInput';
+import CapitalDisplay from './CapitalDisplay';
 
 const TradingArena = () => {
   const [capital, setCapital] = useState(10000);
-  const [leverage, setLeverage] = useState(10);
+  const [tradeAmount, setTradeAmount] = useState(1000);
+  const [leverage, setLeverage] = useState([10]);
   const [position, setPosition] = useState<'up' | 'down' | null>(null);
   const [pnl, setPnl] = useState(0);
   const [marketPrice, setMarketPrice] = useState(50000);
@@ -27,7 +32,7 @@ const TradingArena = () => {
 
   // Calculate PnL when price changes
   useEffect(() => {
-    if (position && entryPrice) {
+    if (position && entryPrice && capitalInMarket) {
       const priceChange = marketPrice - entryPrice;
       const direction = position === 'up' ? 1 : -1;
       const newPnl = (priceChange / entryPrice) * capitalInMarket * direction;
@@ -44,7 +49,7 @@ const TradingArena = () => {
       
       setPnl(newPnl);
     }
-  }, [marketPrice, position, entryPrice, capitalInMarket]);
+  }, [marketPrice, position, entryPrice, capitalInMarket, pnl]);
 
   const handleTrade = (direction: 'up' | 'down') => {
     if (position) {
@@ -56,10 +61,11 @@ const TradingArena = () => {
       setEntryPrice(0);
     } else {
       // Enter position
-      const tradeCapital = capital * (leverage / 100);
+      const commandingCapital = tradeAmount * leverage[0];
       setPosition(direction);
       setEntryPrice(marketPrice);
-      setCapitalInMarket(tradeCapital);
+      setCapitalInMarket(commandingCapital);
+      setCapital(prev => prev - tradeAmount);
     }
   };
 
@@ -92,54 +98,65 @@ const TradingArena = () => {
           <p className="text-gray-400 mt-2">Command the Market</p>
         </div>
 
+        {/* Capital Display - Now prominent at top */}
+        <CapitalDisplay 
+          amount={tradeAmount}
+          leverage={leverage[0]}
+          position={position}
+          pnl={pnl}
+        />
+
+        {/* Price Chart */}
+        <PriceChart currentPrice={marketPrice} />
+
         {/* Market Price */}
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700">
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 border border-gray-700">
           <div className="text-center">
             <p className="text-gray-400 text-sm">BTC/USD</p>
-            <p className="text-3xl font-bold text-white">{formatCurrency(marketPrice)}</p>
+            <p className="text-2xl font-bold text-white">{formatCurrency(marketPrice)}</p>
           </div>
         </div>
 
-        {/* Capital Display */}
-        <div className="bg-gradient-to-r from-yellow-900/20 to-yellow-800/20 rounded-2xl p-6 border border-yellow-600/30">
+        {/* Available Capital */}
+        <div className="bg-gradient-to-r from-yellow-900/20 to-yellow-800/20 rounded-2xl p-4 border border-yellow-600/30">
           <div className="text-center">
             <p className="text-yellow-400 text-sm">Available Capital</p>
-            <p className="text-2xl font-bold text-yellow-300">{formatCurrency(capital)}</p>
+            <p className="text-xl font-bold text-yellow-300">{formatCurrency(capital)}</p>
           </div>
         </div>
 
-        {/* Capital in Market */}
-        {capitalInMarket > 0 && (
-          <div className="bg-gradient-to-r from-purple-900/20 to-purple-800/20 rounded-2xl p-6 border border-purple-600/30">
-            <div className="text-center">
-              <p className="text-purple-400 text-sm">Capital in Market</p>
-              <p className="text-3xl font-bold text-purple-300">{formatCurrency(capitalInMarket)}</p>
-              <div className={`text-xl font-bold mt-2 ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {pnl >= 0 ? '+' : ''}{formatCurrency(pnl)}
+        {/* Trade Controls - Only show when not in position */}
+        {!position && (
+          <>
+            <AmountInput 
+              amount={tradeAmount}
+              onAmountChange={setTradeAmount}
+              maxAmount={capital}
+            />
+
+            {/* Leverage Slider */}
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700">
+              <p className="text-center text-gray-400 mb-4">Leverage Power</p>
+              <div className="space-y-4">
+                <Slider
+                  value={leverage}
+                  onValueChange={setLeverage}
+                  max={50}
+                  min={1}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">1x</span>
+                  <span className="text-2xl font-bold text-yellow-400">{leverage[0]}x</span>
+                  <span className="text-sm text-gray-500">50x</span>
+                </div>
+                <p className="text-center text-sm text-gray-500">
+                  Commands: {formatCurrency(tradeAmount * leverage[0])}
+                </p>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Leverage Selector */}
-        {!position && (
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700">
-            <p className="text-center text-gray-400 mb-4">Leverage Power</p>
-            <div className="flex justify-center items-center space-x-4">
-              <input
-                type="range"
-                min="5"
-                max="50"
-                value={leverage}
-                onChange={(e) => setLeverage(Number(e.target.value))}
-                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
-              />
-              <span className="text-xl font-bold text-yellow-400">{leverage}x</span>
-            </div>
-            <p className="text-center text-sm text-gray-500 mt-2">
-              Controls: {formatCurrency(capital * (leverage / 100))}
-            </p>
-          </div>
+          </>
         )}
 
         {/* Action Buttons */}
@@ -148,14 +165,16 @@ const TradingArena = () => {
             <div className="grid grid-cols-2 gap-4">
               <Button
                 onClick={() => handleTrade('up')}
-                className="h-16 text-xl font-bold bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 transition-all duration-200 transform hover:scale-105"
+                disabled={tradeAmount <= 0 || tradeAmount > capital}
+                className="h-16 text-xl font-bold bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <TrendingUp className="mr-2 h-6 w-6" />
                 THRUST UP
               </Button>
               <Button
                 onClick={() => handleTrade('down')}
-                className="h-16 text-xl font-bold bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 transition-all duration-200 transform hover:scale-105"
+                disabled={tradeAmount <= 0 || tradeAmount > capital}
+                className="h-16 text-xl font-bold bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <TrendingDown className="mr-2 h-6 w-6" />
                 THRUST DOWN
@@ -178,11 +197,11 @@ const TradingArena = () => {
             position === 'up' 
               ? 'from-green-900/20 to-green-800/20 border-green-600/30' 
               : 'from-red-900/20 to-red-800/20 border-red-600/30'
-          } rounded-2xl p-6 border`}>
+          } rounded-2xl p-4 border`}>
             <div className="text-center">
-              <p className="text-gray-400 text-sm">Active Position</p>
-              <p className={`text-2xl font-bold ${position === 'up' ? 'text-green-400' : 'text-red-400'}`}>
-                {position.toUpperCase()} @ {formatCurrency(entryPrice)}
+              <p className="text-gray-400 text-sm">Entry Price</p>
+              <p className={`text-xl font-bold ${position === 'up' ? 'text-green-400' : 'text-red-400'}`}>
+                {formatCurrency(entryPrice)}
               </p>
             </div>
           </div>
