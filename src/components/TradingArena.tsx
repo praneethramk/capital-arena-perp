@@ -103,8 +103,16 @@ const TradingArena = () => {
 
       {/* Main Layout */}
       <div className="grid grid-cols-12 gap-6 p-6 min-h-[calc(100vh-140px)]">
-        {/* Left Panel - Market Stats and Recent Trades */}
+        {/* Left Panel - Available Capital, Market Stats and Recent Trades */}
         <div className="col-span-12 lg:col-span-3 space-y-6">
+          {/* Available Capital */}
+          <div className="bg-gradient-to-r from-yellow-900/20 to-yellow-800/20 rounded-2xl p-6 border border-yellow-600/30">
+            <div className="text-center">
+              <p className="text-yellow-400 text-sm mb-2">Available Capital</p>
+              <p className="text-2xl font-bold text-yellow-300">{formatCurrency(capital)}</p>
+            </div>
+          </div>
+
           {/* Market Stats */}
           <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 space-y-4">
             <h3 className="text-lg font-bold text-center text-gray-300">Market Stats</h3>
@@ -149,14 +157,6 @@ const TradingArena = () => {
               </div>
             </div>
           </div>
-
-          {/* Available Capital */}
-          <div className="bg-gradient-to-r from-yellow-900/20 to-yellow-800/20 rounded-2xl p-6 border border-yellow-600/30">
-            <div className="text-center">
-              <p className="text-yellow-400 text-sm mb-2">Available Capital</p>
-              <p className="text-2xl font-bold text-yellow-300">{formatCurrency(capital)}</p>
-            </div>
-          </div>
         </div>
 
         {/* Center Panel - Price Chart */}
@@ -188,6 +188,47 @@ const TradingArena = () => {
             position={position}
             pnl={pnl}
           />
+
+          {/* Action Buttons */}
+          <div className="space-y-4">
+            {!position ? (
+              <>
+                <Button
+                  onClick={() => handleTrade('up')}
+                  disabled={tradeAmount <= 0 || tradeAmount > capital}
+                  className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <TrendingUp className="mr-3 h-8 w-8" />
+                  THRUST UP
+                </Button>
+                <Button
+                  onClick={() => handleTrade('down')}
+                  disabled={tradeAmount <= 0 || tradeAmount > capital}
+                  className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <TrendingDown className="mr-3 h-8 w-8" />
+                  THRUST DOWN
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => handleTrade(position)}
+                className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 transition-all duration-200 transform hover:scale-105"
+              >
+                <DollarSign className="mr-3 h-8 w-8" />
+                EXIT POSITION
+              </Button>
+            )}
+          </div>
+
+          {/* Flash Mode Button */}
+          <Button
+            className="w-full h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all duration-200"
+            variant="outline"
+          >
+            <Zap className="mr-2 h-5 w-5" />
+            Flash Mode - 2x Power (15s) - $0.10
+          </Button>
 
           {/* Trade Controls - Only show when not in position */}
           {!position && (
@@ -238,47 +279,6 @@ const TradingArena = () => {
               </div>
             </div>
           )}
-
-          {/* Action Buttons */}
-          <div className="space-y-4">
-            {!position ? (
-              <>
-                <Button
-                  onClick={() => handleTrade('up')}
-                  disabled={tradeAmount <= 0 || tradeAmount > capital}
-                  className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <TrendingUp className="mr-3 h-8 w-8" />
-                  THRUST UP
-                </Button>
-                <Button
-                  onClick={() => handleTrade('down')}
-                  disabled={tradeAmount <= 0 || tradeAmount > capital}
-                  className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <TrendingDown className="mr-3 h-8 w-8" />
-                  THRUST DOWN
-                </Button>
-              </>
-            ) : (
-              <Button
-                onClick={() => handleTrade(position)}
-                className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 transition-all duration-200 transform hover:scale-105"
-              >
-                <DollarSign className="mr-3 h-8 w-8" />
-                EXIT POSITION
-              </Button>
-            )}
-          </div>
-
-          {/* Flash Mode Button */}
-          <Button
-            className="w-full h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all duration-200"
-            variant="outline"
-          >
-            <Zap className="mr-2 h-5 w-5" />
-            Flash Mode - 2x Power (15s) - $0.10
-          </Button>
         </div>
       </div>
     </div>
