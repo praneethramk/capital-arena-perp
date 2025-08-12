@@ -9,7 +9,7 @@ import CapitalDisplay from './CapitalDisplay';
 import WalletConnect from './WalletConnect';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-
+import { useBluefinWS } from '@/hooks/useBluefinWS';
 const TradingArena = () => {
   const [capital, setCapital] = useState(10000);
   const [tradeAmount, setTradeAmount] = useState(1000);
@@ -22,19 +22,14 @@ const TradingArena = () => {
   const [flashPnl, setFlashPnl] = useState<{ amount: number; type: 'profit' | 'loss' } | null>(null);
   const [isAddBalanceOpen, setIsAddBalanceOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState<number>(1000);
-
-  // Simulate market price movement
+  const [symbol] = useState<string>('ETH-PERP');
+  const { connected, currentPrice: wsPrice } = useBluefinWS({ symbol });
+  // Bluefin real-time price
   useEffect(() => {
-    const interval = setInterval(() => {
-      setMarketPrice(prev => {
-        const change = (Math.random() - 0.5) * 100;
-        return Math.max(45000, Math.min(55000, prev + change));
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
+    if (typeof wsPrice === 'number' && !isNaN(wsPrice)) {
+      setMarketPrice(wsPrice);
+    }
+  }, [wsPrice]);
   // Calculate PnL when price changes
   useEffect(() => {
     if (position && entryPrice && capitalInMarket) {
@@ -192,23 +187,23 @@ const TradingArena = () => {
         </div>
 
         {/* Center Panel - Price Chart */}
-        <div className="col-span-12 lg:col-span-6 space-y-6">
-          {/* Market Price Header */}
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700">
-            <div className="text-center">
-              <p className="text-gray-400 text-sm mb-2">BTC/USD</p>
-              <p className="text-4xl font-bold text-white">{formatCurrency(marketPrice)}</p>
-              <div className="flex justify-center items-center mt-2 space-x-4">
-                <span className="text-green-400 text-sm">24h High: $55,000</span>
-                <span className="text-red-400 text-sm">24h Low: $45,000</span>
+          <div className="col-span-12 lg:col-span-6 space-y-6">
+            {/* Market Price Header */}
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700">
+              <div className="text-center">
+                <p className="text-gray-400 text-sm mb-2">{symbol}</p>
+                <p className="text-4xl font-bold text-white">{formatCurrency(marketPrice)}</p>
+                <div className="flex justify-center items-center mt-2 space-x-4">
+                  <span className="text-green-400 text-sm">{connected ? '● Live' : '○ Disconnected'}</span>
+                  <span className="text-gray-400 text-sm">Real-time from Bluefin</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Enhanced Price Chart */}
-          <div className="h-96">
-            <PriceChart currentPrice={marketPrice} />
-          </div>
+            {/* Enhanced Price Chart */}
+            <div className="h-96">
+              <PriceChart currentPrice={marketPrice} />
+            </div>
         </div>
 
         {/* Right Panel - Trading Controls and Action Buttons */}

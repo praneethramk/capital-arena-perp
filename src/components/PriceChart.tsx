@@ -25,23 +25,18 @@ const PriceChart = ({ currentPrice }: PriceChartProps) => {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    if (typeof currentPrice === 'number' && !isNaN(currentPrice)) {
       setChartData(prev => {
-        const newData = [...prev.slice(1), {
-          time: new Date().toLocaleTimeString('en-US', { 
-            hour12: false, 
-            hour: '2-digit', 
-            minute: '2-digit',
-            second: '2-digit'
-          }),
-          price: currentPrice,
-          volume: Math.random() * 1000000 + 500000
-        }];
-        return newData;
+        const nowStr = new Date().toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        const next = [...prev.slice(-99), { time: nowStr, price: currentPrice, volume: Math.random() * 1_000_000 + 500_000 }];
+        return next;
       });
-    }, 3000);
-
-    return () => clearInterval(interval);
+    }
   }, [currentPrice]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
