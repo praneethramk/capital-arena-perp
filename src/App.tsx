@@ -14,9 +14,9 @@ const { networkConfig } = createNetworkConfig({
 });
 
 const App = () => (
-  <SuiClientProvider networks={networkConfig} defaultNetwork="mainnet">
-    <WalletProvider>
-      <QueryClientProvider client={queryClient}>
+  <QueryClientProvider client={queryClient}>
+    <SuiClientProvider networks={networkConfig} defaultNetwork="mainnet">
+      <WalletProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -28,9 +28,9 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
-      </QueryClientProvider>
-    </WalletProvider>
-  </SuiClientProvider>
+      </WalletProvider>
+    </SuiClientProvider>
+  </QueryClientProvider>
 );
 
 export default App;
