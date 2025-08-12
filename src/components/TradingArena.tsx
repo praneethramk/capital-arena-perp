@@ -23,7 +23,7 @@ const TradingArena = () => {
   const [isAddBalanceOpen, setIsAddBalanceOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState<number>(1000);
   const [symbol] = useState<string>('ETH-PERP');
-  const { connected, currentPrice: wsPrice } = useBluefinWS({ symbol });
+  const { connected, currentPrice: wsPrice, marketData, recentTrades } = useBluefinWS({ symbol });
   // Bluefin real-time price
   useEffect(() => {
     if (typeof wsPrice === 'number' && !isNaN(wsPrice)) {
@@ -75,7 +75,10 @@ const TradingArena = () => {
       maximumFractionDigits: 0,
     }).format(amount);
   };
-
+  const formatCompact = (val?: number | null) => {
+    if (typeof val !== 'number' || isNaN(val)) return '—';
+    return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(val);
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
       {/* Flash PnL Animation */}
@@ -145,43 +148,56 @@ const TradingArena = () => {
             <h3 className="text-lg font-bold text-center text-gray-300">Market Stats</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
+                <span className="text-gray-400">Mark Price</span>
+                <span className="text-white font-bold">
+                  {typeof marketData?.markPrice === 'number' ? formatCurrency(marketData.markPrice) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Index Price</span>
+                <span className="text-white font-bold">
+                  {typeof marketData?.indexPrice === 'number' ? formatCurrency(marketData.indexPrice) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">24h High</span>
+                <span className="text-white font-bold">
+                  {typeof (marketData as any)?.high24h === 'number' ? formatCurrency((marketData as any).high24h) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">24h Low</span>
+                <span className="text-white font-bold">
+                  {typeof (marketData as any)?.low24h === 'number' ? formatCurrency((marketData as any).low24h) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-gray-400">Volume 24h</span>
-                <span className="text-white font-bold">$2.4B</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Market Cap</span>
-                <span className="text-white font-bold">$980B</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Volatility</span>
-                <span className="text-yellow-400 font-bold">High</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Fear & Greed</span>
-                <span className="text-orange-400 font-bold">72 (Greed)</span>
+                <span className="text-white font-bold">{formatCompact((marketData as any)?.volume24h)}</span>
               </div>
             </div>
           </div>
 
           {/* Recent Trades */}
           <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-            <h3 className="text-lg font-bold text-center text-gray-300 mb-4">Recent Thrusts</h3>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-green-400">↗ UP</span>
-                <span className="text-gray-400">$50,120</span>
-                <span className="text-green-400">+$245</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-red-400">↙ DOWN</span>
-                <span className="text-gray-400">$49,980</span>
-                <span className="text-red-400">-$89</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-green-400">↗ UP</span>
-                <span className="text-gray-400">$49,850</span>
-                <span className="text-green-400">+$156</span>
-              </div>
+            <h3 className="text-lg font-bold text-center text-gray-300 mb-4">Recent Trades</h3>
+            <div className="space-y-2 text-xs max-h-64 overflow-auto">
+              {recentTrades.length === 0 ? (
+                <p className="text-center text-gray-500">Waiting for trades…</p>
+              ) : (
+                recentTrades.slice(0, 20).map((t, idx) => {
+                  const isBuy = (t.side ?? '').toLowerCase().includes('buy');
+                  return (
+                    <div key={`${t.time}-${idx}`} className="flex justify-between items-center">
+                      <span className={isBuy ? 'text-green-400' : 'text-red-400'}>
+                        {isBuy ? '↗ BUY' : '↙ SELL'}
+                      </span>
+                      <span className="text-gray-300">{formatCurrency(t.price)}</span>
+                      <span className="text-gray-500">{t.size ? formatCompact(t.size) : ''}</span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

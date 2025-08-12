@@ -11,12 +11,21 @@ interface UseBluefinWSOptions {
 }
 
 interface MarketDataPayload {
-  // Shape based on Bluefin docs; we defensively pick price-like fields
   lastPrice?: number;
   indexPrice?: number;
   markPrice?: number;
   currentPrice?: number;
+  high24h?: number;
+  low24h?: number;
+  volume24h?: number;
   [key: string]: any;
+}
+
+export interface RecentTradeItem {
+  price: number;
+  size?: number;
+  side?: 'buy' | 'sell' | string;
+  time: number;
 }
 
 export function useBluefinWS({ symbol }: UseBluefinWSOptions) {
@@ -24,6 +33,8 @@ export function useBluefinWS({ symbol }: UseBluefinWSOptions) {
   const [connected, setConnected] = useState(false);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [lastEventAt, setLastEventAt] = useState<number | null>(null);
+  const [marketData, setMarketData] = useState<MarketDataPayload | null>(null);
+  const [recentTrades, setRecentTrades] = useState<RecentTradeItem[]>([]);
 
   useEffect(() => {
     // Close any previous connection
@@ -58,8 +69,10 @@ export function useBluefinWS({ symbol }: UseBluefinWSOptions) {
       try {
         const data = JSON.parse(evt.data);
         const eventName: BluefinEvent | string | undefined = data?.eventName;
+
         if (eventName === 'MarketDataUpdate') {
           const payload: MarketDataPayload = data?.data ?? data;
+          setMarketData(payload);
           const price =
             (typeof payload.currentPrice === 'number' && payload.currentPrice) ||
             (typeof payload.lastPrice === 'number' && payload.lastPrice) ||
@@ -70,6 +83,28 @@ export function useBluefinWS({ symbol }: UseBluefinWSOptions) {
             setCurrentPrice(price);
             setLastEventAt(Date.now());
           }
+        } else if (eventName === 'RecentTrades') {
+          const trades = (data?.data ?? data) as any;
+          const list: RecentTradeItem[] = Array.isArray(trades)
+            ? trades
+                .map((t: any) => ({
+                  price: Number(t.price ?? t.p ?? t.lastPrice ?? t.markPrice),
+                  size: Number(t.size ?? t.qty ?? t.q ?? t.amount) || undefined,
+                  side: (t.side ?? t.S ?? '').toString().toLowerCase(),
+                  time: Number(t.time ?? t.T ?? Date.now()),
+                }))
+                .filter((t: RecentTradeItem) => !isNaN(t.price))
+            : [];
+          if (list.length) {
+            setRecentTrades((prev) => {
+              const merged = [...list, ...prev].slice(0, 50);
+              return merged;
+            });
+          }
+        } else if (typeof eventName === 'string' && eventName.includes('@kline@')) {
+          // Optional: handle candlesticks if emitted
+          // const k = data?.data ?? data;
+          // You can parse OHLCV here if needed.
         }
       } catch {
         // ignore parse errors
@@ -83,5 +118,5 @@ export function useBluefinWS({ symbol }: UseBluefinWSOptions) {
     };
   }, [symbol]);
 
-  return { connected, currentPrice, lastEventAt };
+  return { connected, currentPrice, lastEventAt, marketData, recentTrades };
 }
