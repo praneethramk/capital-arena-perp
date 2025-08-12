@@ -7,6 +7,8 @@ import PriceChart from './PriceChart';
 import AmountInput from './AmountInput';
 import CapitalDisplay from './CapitalDisplay';
 import WalletConnect from './WalletConnect';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 const TradingArena = () => {
   const [capital, setCapital] = useState(10000);
@@ -18,6 +20,8 @@ const TradingArena = () => {
   const [entryPrice, setEntryPrice] = useState(0);
   const [capitalInMarket, setCapitalInMarket] = useState(0);
   const [flashPnl, setFlashPnl] = useState<{ amount: number; type: 'profit' | 'loss' } | null>(null);
+  const [isAddBalanceOpen, setIsAddBalanceOpen] = useState(false);
+  const [depositAmount, setDepositAmount] = useState<number>(1000);
 
   // Simulate market price movement
   useEffect(() => {
@@ -107,8 +111,36 @@ const TradingArena = () => {
         <div className="col-span-12 lg:col-span-3 space-y-6">
           {/* Available Capital */}
           <div className="bg-gradient-to-r from-yellow-900/20 to-yellow-800/20 rounded-2xl p-6 border border-yellow-600/30">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-yellow-400 text-sm">Balance</p>
+              <Dialog open={isAddBalanceOpen} onOpenChange={setIsAddBalanceOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="border-yellow-600/40 text-yellow-300">
+                    Add
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Balance</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <label className="text-sm text-gray-400">Amount (USD)</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(Number(e.currentTarget.value))}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={() => { setCapital((prev) => prev + (isNaN(depositAmount) ? 0 : depositAmount)); setIsAddBalanceOpen(false); }}>
+                      Confirm
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
             <div className="text-center">
-              <p className="text-yellow-400 text-sm mb-2">Available Capital</p>
               <p className="text-2xl font-bold text-yellow-300">{formatCurrency(capital)}</p>
             </div>
           </div>
