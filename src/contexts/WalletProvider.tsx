@@ -149,7 +149,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Failed to fetch Sui balance:', error);
       // Return demo balance
-      return 1000 + Math.random() * 5000;
+      return 100 + Math.random() * 900; // More realistic demo balance
     }
   };
 
@@ -161,7 +161,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Failed to fetch Solana balance:', error);
       // Return demo balance
-      return 500 + Math.random() * 2000;
+      return 50 + Math.random() * 450; // More realistic demo balance
     }
   };
 

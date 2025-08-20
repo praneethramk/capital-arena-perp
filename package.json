@@ -22,7 +22,8 @@
     "preview": "vite preview --host :: --port 8080",
     "preview:https": "vite preview --host :: --port 8080 --https",
     "start": "npm run dev",
-    "clean": "rm -rf dist node_modules/.vite"
+    "clean": "rm -rf dist node_modules/.vite",
+    "deploy": "npm run build && vercel --prod"
   },
   "dependencies": {
     "@bluefin-exchange/bluefin-v2-client": "^6.4.0",

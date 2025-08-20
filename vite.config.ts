@@ -10,27 +10,43 @@ export default defineConfig(({ mode }) => ({
     // HTTPS is handled by mkcert plugin
     proxy: {
       "/bluefin-api": {
-        target: "https://api.sui-prod.bluefin.io", 
+        target: "https://dapi.api.sui-prod.bluefin.io", 
         changeOrigin: true,
-        secure: false,       // ignore invalid certs
+        secure: true,
         rewrite: (p) => p.replace(/^\/bluefin-api/, ""),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; BluefinTrading/1.0)',
+        },
       },
       "/bluefin-ws": {
         target: "wss://notifications.api.sui-prod.bluefin.io", 
         ws: true,
         changeOrigin: true,
-        secure: false,
+        secure: true,
         rewrite: (p) => p.replace(/^\/bluefin-ws/, ""),
       },
     },
   },
   plugins: [
     react(),
-    mkcert(), // 👈 trustable local HTTPS certs
+    ...(mode === 'development' ? [mkcert()] : []), // Only use HTTPS in development
   ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-toast'],
+          charts: ['recharts', 'lightweight-charts'],
+        },
+      },
     },
   },
 }));
