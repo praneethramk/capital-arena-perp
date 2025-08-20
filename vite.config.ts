@@ -1,22 +1,39 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
+import mkcert from "vite-plugin-mkcert";
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
+    host: "::",             // allows LAN/local
     port: 8080,
+    // HTTPS is handled by mkcert plugin
+    proxy: {
+      "/bluefin-api": {
+        target: "https://api.sui-prod.bluefin.io", 
+        changeOrigin: true,
+        secure: false,       // ignore invalid certs
+        rewrite: (p) => p.replace(/^\/bluefin-api/, ""),
+      },
+      "/bluefin-ws": {
+        target: "wss://notifications.api.sui-prod.bluefin.io", 
+        ws: true,
+        changeOrigin: true,
+        secure: false,
+        rewrite: (p) => p.replace(/^\/bluefin-ws/, ""),
+      },
+    },
   },
   plugins: [
     react(),
-    mode === 'development' &&
-    componentTagger(),
-  ].filter(Boolean),
+    mkcert(), // 👈 trustable local HTTPS certs
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
 }));
+
+
+

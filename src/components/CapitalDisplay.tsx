@@ -7,9 +7,11 @@ interface CapitalDisplayProps {
   leverage: number;
   position: 'up' | 'down' | null;
   pnl: number;
+  walletBalance?: number;
+  walletCurrency?: string;
 }
 
-const CapitalDisplay = ({ amount, leverage, position, pnl }: CapitalDisplayProps) => {
+const CapitalDisplay = ({ amount, leverage, position, pnl, walletBalance, walletCurrency }: CapitalDisplayProps) => {
   const commandingCapital = amount * leverage;
   
   if (!position) {
@@ -23,6 +25,14 @@ const CapitalDisplay = ({ amount, leverage, position, pnl }: CapitalDisplayProps
           <p className="text-gray-500 text-xs mt-1">
             ${amount.toLocaleString()} × {leverage}x leverage
           </p>
+          {walletBalance !== undefined && (
+            <div className="mt-3 pt-3 border-t border-gray-600/30">
+              <p className="text-xs text-gray-400">Wallet Balance</p>
+              <p className="text-sm font-medium text-blue-400">
+                {walletBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} {walletCurrency}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );

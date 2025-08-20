@@ -10,29 +10,74 @@ import WalletConnect from './WalletConnect';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useBluefinWS } from '@/hooks/useBluefinWS';
+import { useBluefinMarkets } from '@/hooks/useBluefinMarkets';
+import { useWallet } from '@/contexts/WalletProvider';
+
 const TradingArena = () => {
   const [capital, setCapital] = useState(10000);
   const [tradeAmount, setTradeAmount] = useState(1000);
   const [leverage, setLeverage] = useState([10]);
   const [position, setPosition] = useState<'up' | 'down' | null>(null);
   const [pnl, setPnl] = useState(0);
-  const [marketPrice, setMarketPrice] = useState(50000);
   const [entryPrice, setEntryPrice] = useState(0);
   const [capitalInMarket, setCapitalInMarket] = useState(0);
   const [flashPnl, setFlashPnl] = useState<{ amount: number; type: 'profit' | 'loss' } | null>(null);
   const [isAddBalanceOpen, setIsAddBalanceOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState<number>(1000);
-  const [symbol] = useState<string>('ETH-PERP');
-  const { connected, currentPrice: wsPrice, marketData, recentTrades } = useBluefinWS({ symbol });
-  // Bluefin real-time price
+
+  // Get markets and real-time data
+  const { markets, loading: marketsLoading, error: marketsError } = useBluefinMarkets();
+  const { connected: walletConnected, balance: walletBalance, walletType } = useWallet();
+  const [symbol, setSymbol] = useState<string>('ETH-PERP');
+  
+  // Debug logging for markets
   useEffect(() => {
-    if (typeof wsPrice === 'number' && !isNaN(wsPrice)) {
-      setMarketPrice(wsPrice);
+    console.log('📊 Markets loaded:', { markets, loading: marketsLoading, error: marketsError });
+  }, [markets, marketsLoading, marketsError]);
+  
+  useEffect(() => {
+    if (markets.length && !markets.some((m) => m.symbol === symbol)) {
+      console.log('🔄 Setting symbol to first available market:', markets[0].symbol);
+      setSymbol(markets[0].symbol);
     }
-  }, [wsPrice]);
-  // Calculate PnL when price changes
+  }, [markets, symbol]);
+
+  // Get real-time WebSocket data for current symbol
+  const { 
+    connected, 
+    currentPrice: livePrice, 
+    marketData, 
+    recentTrades, 
+    candles1m,
+    connectionError,
+    reconnect 
+  } = useBluefinWS({ symbol });
+  
+  // Debug logging for WebSocket data
   useEffect(() => {
-    if (position && entryPrice && capitalInMarket) {
+    console.log('📡 WebSocket data for', symbol, ':', { 
+      connected, 
+      livePrice, 
+      marketDataFields: marketData ? Object.keys(marketData) : [],
+      tradesCount: recentTrades.length,
+      candlesCount: candles1m.length,
+      connectionError 
+    });
+  }, [symbol, connected, livePrice, marketData, recentTrades, candles1m, connectionError]);
+  
+  // Use live price as the primary market price for trading
+  const marketPrice = livePrice;
+  
+  // Update trading logic when live price changes
+  useEffect(() => {
+    if (typeof livePrice === 'number' && !isNaN(livePrice) && livePrice > 0) {
+      console.log('💰 Live price update for', symbol, ':', livePrice);
+    }
+  }, [livePrice, symbol]);
+
+  // Calculate PnL when price changes (using live price)
+  useEffect(() => {
+    if (position && entryPrice && capitalInMarket && typeof marketPrice === 'number') {
       const priceChange = marketPrice - entryPrice;
       const direction = position === 'up' ? 1 : -1;
       const newPnl = (priceChange / entryPrice) * capitalInMarket * direction;
@@ -59,6 +104,7 @@ const TradingArena = () => {
       setCapitalInMarket(0);
       setEntryPrice(0);
     } else {
+      if (typeof marketPrice !== 'number' || !marketPrice) return;
       const commandingCapital = tradeAmount * leverage[0];
       setPosition(direction);
       setEntryPrice(marketPrice);
@@ -67,18 +113,39 @@ const TradingArena = () => {
     }
   };
 
+  const handleSymbolChange = (newSymbol: string) => {
+    console.log('🔄 Changing market from', symbol, 'to', newSymbol);
+    setSymbol(newSymbol);
+    // Reset position when changing markets
+    if (position) {
+      setCapital(prev => prev + pnl);
+      setPosition(null);
+      setPnl(0);
+      setCapitalInMarket(0);
+      setEntryPrice(0);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 8,
     }).format(amount);
   };
+
   const formatCompact = (val?: number | null) => {
     if (typeof val !== 'number' || isNaN(val)) return '—';
     return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(val);
   };
+
+  const formatPrice = (price: number, decimals = 2) => {
+    if (price < 1) return price.toFixed(8);
+    if (price < 100) return price.toFixed(4);
+    return price.toFixed(decimals);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
       {/* Flash PnL Animation */}
@@ -96,7 +163,17 @@ const TradingArena = () => {
           <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
             SUDO THRUST
           </h1>
-          <p className="text-gray-400 mt-2 text-lg">Command the Market</p>
+          <p className="text-gray-400 mt-2 text-lg">Command the Market • Bluefin Integration</p>
+          
+          {/* Live Data Status */}
+          <div className="mt-3 flex justify-center items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400 animate-pulse'}`}></div>
+            <span className={`text-xs ${connected ? 'text-green-400' : 'text-yellow-400'}`}>
+              {connected ? 'LIVE BLUEFIN DATA' : 'DEMO MODE'}
+            </span>
+            <span className="text-gray-500 text-xs">•</span>
+            <span className="text-gray-500 text-xs">{recentTrades.length} trades • {candles1m.length} candles</span>
+          </div>
         </div>
         <div className="absolute top-8 right-6">
           <WalletConnect />
@@ -143,57 +220,95 @@ const TradingArena = () => {
             </div>
           </div>
 
-          {/* Market Stats */}
+          {/* Market Selector */}
+          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+            <label className="block text-sm text-gray-400 mb-2">Select Market</label>
+            <select
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-gray-200"
+              value={symbol}
+              onChange={(e) => handleSymbolChange(e.currentTarget.value)}
+            >
+              {markets.map((m) => (
+                <option key={m.symbol} value={m.symbol}>
+                  {m.symbol} {m.base && `(${m.base})`}
+                </option>
+              ))}
+            </select>
+            {marketsError && (
+              <p className="text-xs text-orange-400 mt-1">{marketsError}</p>
+            )}
+          </div>
+
+          {/* Live Market Stats */}
           <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 space-y-4">
-            <h3 className="text-lg font-bold text-center text-gray-300">Market Stats</h3>
+            <h3 className="text-lg font-bold text-center text-gray-300">Live Market Data</h3>
             <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Live Price</span>
+                <span className="text-white font-bold">
+                  {typeof marketPrice === 'number' ? `$${formatPrice(marketPrice)}` : '—'}
+                </span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Mark Price</span>
                 <span className="text-white font-bold">
-                  {typeof marketData?.markPrice === 'number' ? formatCurrency(marketData.markPrice) : '—'}
+                  {typeof marketData?.markPrice === 'number' ? `$${formatPrice(marketData.markPrice)}` : '—'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Index Price</span>
                 <span className="text-white font-bold">
-                  {typeof marketData?.indexPrice === 'number' ? formatCurrency(marketData.indexPrice) : '—'}
+                  {typeof marketData?.indexPrice === 'number' ? `$${formatPrice(marketData.indexPrice)}` : '—'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">24h High</span>
                 <span className="text-white font-bold">
-                  {typeof (marketData as any)?.high24h === 'number' ? formatCurrency((marketData as any).high24h) : '—'}
+                  {typeof marketData?.high24h === 'number' ? `$${formatPrice(marketData.high24h)}` : '—'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">24h Low</span>
                 <span className="text-white font-bold">
-                  {typeof (marketData as any)?.low24h === 'number' ? formatCurrency((marketData as any).low24h) : '—'}
+                  {typeof marketData?.low24h === 'number' ? `$${formatPrice(marketData.low24h)}` : '—'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Volume 24h</span>
-                <span className="text-white font-bold">{formatCompact((marketData as any)?.volume24h)}</span>
+                <span className="text-white font-bold">{formatCompact(marketData?.volume24h)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Change 24h</span>
+                <span className={`font-bold ${(marketData?.changePercent24h ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {typeof marketData?.changePercent24h === 'number' ? `${marketData.changePercent24h.toFixed(2)}%` : '—'}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Recent Trades */}
+          {/* Live Recent Trades */}
           <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-            <h3 className="text-lg font-bold text-center text-gray-300 mb-4">Recent Trades</h3>
+            <h3 className="text-lg font-bold text-center text-gray-300 mb-4">Live Trades</h3>
             <div className="space-y-2 text-xs max-h-64 overflow-auto">
               {recentTrades.length === 0 ? (
-                <p className="text-center text-gray-500">Waiting for trades…</p>
+                <p className="text-center text-gray-500">Loading trades...</p>
               ) : (
-                recentTrades.slice(0, 20).map((t, idx) => {
-                  const isBuy = (t.side ?? '').toLowerCase().includes('buy');
+                recentTrades.slice(0, 20).map((trade, idx) => {
+                  const isBuy = (trade.side ?? '').toLowerCase().includes('buy');
+                  const tradeTime = new Date(trade.timestamp).toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  });
                   return (
-                    <div key={`${t.time}-${idx}`} className="flex justify-between items-center">
-                      <span className={isBuy ? 'text-green-400' : 'text-red-400'}>
+                    <div key={`${trade.timestamp}-${idx}`} className="flex justify-between items-center py-1">
+                      <span className={`font-medium ${isBuy ? 'text-green-400' : 'text-red-400'}`}>
                         {isBuy ? '↗ BUY' : '↙ SELL'}
                       </span>
-                      <span className="text-gray-300">{formatCurrency(t.price)}</span>
-                      <span className="text-gray-500">{t.size ? formatCompact(t.size) : ''}</span>
+                      <span className="text-gray-300 font-mono">${formatPrice(trade.price)}</span>
+                      <span className="text-gray-500">{trade.size ? formatCompact(trade.size) : ''}</span>
+                      <span className="text-gray-600 text-xs">{tradeTime}</span>
                     </div>
                   );
                 })
@@ -203,23 +318,48 @@ const TradingArena = () => {
         </div>
 
         {/* Center Panel - Price Chart */}
-          <div className="col-span-12 lg:col-span-6 space-y-6">
-            {/* Market Price Header */}
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700">
-              <div className="text-center">
-                <p className="text-gray-400 text-sm mb-2">{symbol}</p>
-                <p className="text-4xl font-bold text-white">{formatCurrency(marketPrice)}</p>
-                <div className="flex justify-center items-center mt-2 space-x-4">
-                  <span className="text-green-400 text-sm">{connected ? '● Live' : '○ Disconnected'}</span>
-                  <span className="text-gray-400 text-sm">Real-time from Bluefin</span>
-                </div>
+        <div className="col-span-12 lg:col-span-6 space-y-6">
+          {/* Market Price Header with Live Data */}
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700">
+            <div className="text-center">
+              <p className="text-gray-400 text-sm mb-2">{symbol}</p>
+              <p className="text-4xl font-bold text-white">
+                {typeof marketPrice === 'number' ? `$${formatPrice(marketPrice)}` : '—'}
+              </p>
+              <div className="flex justify-center items-center mt-2 space-x-4">
+                <span className={`text-sm ${connected ? 'text-green-400' : 'text-yellow-400'}`}>
+                  {connected ? '● Live Data' : '● Simulated'}
+                </span>
+                <span className="text-gray-400 text-sm">
+                  {connected ? 'Real-time from Bluefin' : 'Demo Mode'}
+                </span>
+                {connectionError && (
+                  <button 
+                    onClick={reconnect}
+                    className="text-xs text-blue-400 hover:text-blue-300 underline"
+                    title={connectionError}
+                  >
+                    Try Live Data
+                  </button>
+                )}
               </div>
+              {connectionError && (
+                <div className="text-xs text-orange-400 mt-1 text-center">
+                  {connectionError}
+                </div>
+              )}
             </div>
+          </div>
 
-            {/* Enhanced Price Chart */}
-            <div className="h-96">
-              <PriceChart currentPrice={marketPrice} />
+          {/* Enhanced Price Chart with Live Data */}
+          <div className="h-[500px] relative overflow-hidden rounded-2xl">
+            <div className="absolute inset-0">
+              <PriceChart 
+                currentPrice={marketPrice} 
+                candles1m={candles1m}
+              />
             </div>
+          </div>
         </div>
 
         {/* Right Panel - Trading Controls and Action Buttons */}
@@ -230,15 +370,17 @@ const TradingArena = () => {
             leverage={leverage[0]}
             position={position}
             pnl={pnl}
+            walletBalance={walletConnected ? walletBalance : undefined}
+            walletCurrency={walletType === 'sui' ? 'SUI' : 'SOL'}
           />
 
-          {/* Action Buttons */}
+          {/* Action Buttons - Now driven by live price */}
           <div className="space-y-4">
             {!position ? (
               <>
                 <Button
                   onClick={() => handleTrade('up')}
-                  disabled={tradeAmount <= 0 || tradeAmount > capital}
+                  disabled={tradeAmount <= 0 || tradeAmount > capital || typeof marketPrice !== 'number'}
                   className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <TrendingUp className="mr-3 h-8 w-8" />
@@ -246,7 +388,7 @@ const TradingArena = () => {
                 </Button>
                 <Button
                   onClick={() => handleTrade('down')}
-                  disabled={tradeAmount <= 0 || tradeAmount > capital}
+                  disabled={tradeAmount <= 0 || tradeAmount > capital || typeof marketPrice !== 'number'}
                   className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <TrendingDown className="mr-3 h-8 w-8" />
@@ -307,18 +449,32 @@ const TradingArena = () => {
             </>
           )}
 
-          {/* Position Info */}
+          {/* Position Info - Shows live entry vs current price */}
           {position && (
             <div className={`bg-gradient-to-r ${
               position === 'up' 
                 ? 'from-green-900/20 to-green-800/20 border-green-600/30' 
                 : 'from-red-900/20 to-red-800/20 border-red-600/30'
             } rounded-2xl p-6 border`}>
-              <div className="text-center">
-                <p className="text-gray-400 text-sm mb-2">Entry Price</p>
+              <div className="text-center space-y-2">
+                <p className="text-gray-400 text-sm">Entry Price</p>
                 <p className={`text-2xl font-bold ${position === 'up' ? 'text-green-400' : 'text-red-400'}`}>
-                  {formatCurrency(entryPrice)}
+                  ${formatPrice(entryPrice)}
                 </p>
+                <p className="text-gray-400 text-sm">Current Price</p>
+                <p className="text-xl font-bold text-white">
+                  ${typeof marketPrice === 'number' ? formatPrice(marketPrice) : '—'}
+                </p>
+                {typeof marketPrice === 'number' && (
+                  <p className={`text-sm font-medium ${
+                    (position === 'up' ? marketPrice > entryPrice : marketPrice < entryPrice) 
+                      ? 'text-green-400' 
+                      : 'text-red-400'
+                  }`}>
+                    {((marketPrice - entryPrice) / entryPrice * 100).toFixed(2)}% 
+                    {position === 'up' ? ' profit' : ' profit'} potential
+                  </p>
+                )}
               </div>
             </div>
           )}
