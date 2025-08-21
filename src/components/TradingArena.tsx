@@ -14,6 +14,8 @@ import { useBluefinMarkets } from '@/hooks/useBluefinMarkets';
 import { useWallet } from '@/contexts/WalletProvider';
 
 const TradingArena = () => {
+  console.log('TradingArena component rendering...');
+  
   const [capital, setCapital] = useState(10000);
   const [tradeAmount, setTradeAmount] = useState(1000);
   const [leverage, setLeverage] = useState([10]);
@@ -147,7 +149,7 @@ const TradingArena = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white w-full">
       {/* Flash PnL Animation */}
       {flashPnl && (
         <div className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl font-bold z-50 animate-scale-in ${

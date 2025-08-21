@@ -1,8 +1,12 @@
-
 import TradingArena from '@/components/TradingArena';
 
 const Index = () => {
-  return <TradingArena />;
+  console.log('Index component rendering...');
+  return (
+    <div className="w-full">
+      <TradingArena />
+    </div>
+  );
 };
 
 export default Index;
