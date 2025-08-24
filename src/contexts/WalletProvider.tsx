@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { SuiClient, getFullnodeUrl } from '@mysten/sui.js/client';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
-export type WalletType = 'sui' | 'phantom' | 'solush';
+export type WalletType = 'sui' | 'phantom' | 'slush';
 
 interface WalletState {
   connected: boolean;
@@ -44,14 +44,17 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     publicKey: null,
   });
 
+  // Remove dapp-kit hooks that are causing errors
+  // We'll handle Sui wallet connection directly through window.suiWallet
+
   const getWalletIcon = (walletType: WalletType): string => {
     switch (walletType) {
       case 'sui':
         return '🔵'; // Sui logo placeholder
       case 'phantom':
         return '👻'; // Phantom logo placeholder
-      case 'solush':
-        return '💧'; // Solush logo placeholder
+      case 'slush':
+        return '🌊'; // Slush logo placeholder
       default:
         return '💼';
     }
@@ -63,34 +66,47 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         return 'Sui Wallet';
       case 'phantom':
         return 'Phantom';
-      case 'solush':
-        return 'Solush';
+      case 'slush':
+        return 'Slush';
       default:
         return 'Unknown Wallet';
     }
   };
 
   const connectSuiWallet = async (): Promise<{ address: string; publicKey: string }> => {
-    // Check if Sui wallet is available
+    // Check if Sui Wallet is available
     if (typeof window !== 'undefined' && (window as any).suiWallet) {
       try {
-        const wallet = (window as any).suiWallet;
-        const result = await wallet.connect();
+        const suiWallet = (window as any).suiWallet;
+        // console.log('Requesting Sui wallet connection...');
+        
+        // Request connection
+        const response = await suiWallet.requestPermissions({
+          permissions: ['viewAccount', 'suggestTransactions']
+        });
+        
+        if (!response || !response.accounts || response.accounts.length === 0) {
+          throw new Error('No accounts found or permission denied');
+        }
+        
+        const account = response.accounts[0];
+        // console.log('Sui wallet connected successfully:', account.address);
+        
         return {
-          address: result.accounts[0].address,
-          publicKey: result.accounts[0].publicKey,
+          address: account.address,
+          publicKey: account.publicKey || account.address,
         };
       } catch (error) {
         console.error('Sui wallet connection failed:', error);
-        throw new Error('Failed to connect to Sui wallet');
+        if (error instanceof Error) {
+          if (error.message.includes('User rejected')) {
+            throw new Error('User rejected the connection request');
+          }
+        }
+        throw new Error('Failed to connect to Sui wallet: ' + (error instanceof Error ? error.message : 'Unknown error'));
       }
     } else {
-      // Simulate Sui wallet for demo purposes
-      console.log('Sui wallet not detected, using demo account');
-      return {
-        address: '0x1234567890abcdef1234567890abcdef12345678',
-        publicKey: 'sui_demo_public_key',
-      };
+      throw new Error('Sui wallet extension not found. Please install a Sui wallet extension.');
     }
   };
 
@@ -99,69 +115,108 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     if (typeof window !== 'undefined' && (window as any).phantom?.solana) {
       try {
         const phantom = (window as any).phantom.solana;
-        const response = await phantom.connect();
+        
+        // Check if Phantom is already connected
+        if (phantom.isConnected) {
+          // console.log('Phantom wallet already connected');
+          return {
+            address: phantom.publicKey.toString(),
+            publicKey: phantom.publicKey.toString(),
+          };
+        }
+        
+        // Request connection with explicit permissions
+        // console.log('Requesting Phantom wallet connection...');
+        const response = await phantom.connect({ onlyIfTrusted: false });
+        
+        if (!response || !response.publicKey) {
+          throw new Error('No public key received from Phantom wallet');
+        }
+        
+        // console.log('Phantom wallet connected successfully:', response.publicKey.toString());
         return {
           address: response.publicKey.toString(),
           publicKey: response.publicKey.toString(),
         };
       } catch (error) {
         console.error('Phantom wallet connection failed:', error);
-        throw new Error('Failed to connect to Phantom wallet');
+        if (error instanceof Error) {
+          if (error.message.includes('User rejected')) {
+            throw new Error('User rejected the connection request');
+          }
+        }
+        throw new Error('Failed to connect to Phantom wallet: ' + (error instanceof Error ? error.message : 'Unknown error'));
       }
     } else {
-      // Simulate Phantom wallet for demo purposes
-      console.log('Phantom wallet not detected, using demo account');
-      return {
-        address: 'PhantomDemo1234567890abcdef1234567890abcdef',
-        publicKey: 'phantom_demo_public_key',
-      };
+      throw new Error('Phantom wallet extension not found. Please install the Phantom browser extension from phantom.app');
     }
   };
 
-  const connectSolushWallet = async (): Promise<{ address: string; publicKey: string }> => {
-    // Check if Solush is available
-    if (typeof window !== 'undefined' && (window as any).solush) {
+  const connectSlushWallet = async (): Promise<{ address: string; publicKey: string }> => {
+    // Check if Slush is available
+    if (typeof window !== 'undefined' && (window as any).slush) {
       try {
-        const solush = (window as any).solush;
-        const result = await solush.connect();
+        const slush = (window as any).slush;
+        // console.log('Requesting Slush wallet connection...');
+        
+        // Request connection with Sui network specific parameters
+        const result = await slush.connect({
+          network: 'mainnet',
+          chain: 'sui'
+        });
+        
+        if (!result || !result.accounts || result.accounts.length === 0) {
+          throw new Error('No accounts found or permission denied');
+        }
+        
+        const account = result.accounts[0];
+        // console.log('Slush wallet connected successfully:', account.address);
+        
         return {
-          address: result.publicKey.toString(),
-          publicKey: result.publicKey.toString(),
+          address: account.address,
+          publicKey: account.publicKey || account.address,
         };
       } catch (error) {
-        console.error('Solush wallet connection failed:', error);
-        throw new Error('Failed to connect to Solush wallet');
+        console.error('Slush wallet connection failed:', error);
+        if (error instanceof Error) {
+          if (error.message.includes('User rejected')) {
+            throw new Error('User rejected the connection request');
+          }
+          if (error.message.includes('network')) {
+            throw new Error('Slush wallet does not support Sui network');
+          }
+        }
+        throw new Error('Failed to connect to Slush wallet: ' + (error instanceof Error ? error.message : 'Unknown error'));
       }
     } else {
-      // Simulate Solush wallet for demo purposes
-      console.log('Solush wallet not detected, using demo account');
-      return {
-        address: 'SolushDemo1234567890abcdef1234567890abcdef',
-        publicKey: 'solush_demo_public_key',
-      };
+      throw new Error('Slush wallet extension not found. Please install the Slush browser extension.');
     }
   };
 
   const fetchSuiBalance = async (address: string): Promise<number> => {
     try {
+      // console.log('Fetching real Sui balance for address:', address);
       const balance = await suiClient.getBalance({ owner: address });
-      return parseInt(balance.totalBalance) / 1000000000; // Convert from MIST to SUI
+      const suiBalance = parseInt(balance.totalBalance) / 1000000000; // Convert from MIST to SUI
+      // console.log('Real Sui balance fetched:', suiBalance);
+      return suiBalance;
     } catch (error) {
       console.error('Failed to fetch Sui balance:', error);
-      // Return demo balance
-      return 100 + Math.random() * 900; // More realistic demo balance
+      throw new Error('Unable to fetch Sui balance: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
   const fetchSolanaBalance = async (address: string): Promise<number> => {
     try {
+      // console.log('Fetching real Solana balance for address:', address);
       const publicKey = new PublicKey(address);
       const balance = await solanaConnection.getBalance(publicKey);
-      return balance / LAMPORTS_PER_SOL;
+      const solBalance = balance / LAMPORTS_PER_SOL;
+      // console.log('Real Solana balance fetched:', solBalance);
+      return solBalance;
     } catch (error) {
       console.error('Failed to fetch Solana balance:', error);
-      // Return demo balance
-      return 50 + Math.random() * 450; // More realistic demo balance
+      throw new Error('Unable to fetch Solana balance: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -181,9 +236,9 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
           walletInfo = await connectPhantomWallet();
           balance = await fetchSolanaBalance(walletInfo.address);
           break;
-        case 'solush':
-          walletInfo = await connectSolushWallet();
-          balance = await fetchSolanaBalance(walletInfo.address);
+        case 'slush':
+          walletInfo = await connectSlushWallet();
+          balance = await fetchSuiBalance(walletInfo.address);
           break;
         default:
           throw new Error('Unsupported wallet type');
@@ -205,6 +260,11 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         publicKey: walletInfo.publicKey,
       }));
 
+      // console.log(`Successfully connected ${walletType} wallet:`, {
+      //   address: walletInfo.address,
+      //   balance: balance
+      // });
+
     } catch (error) {
       console.error('Wallet connection failed:', error);
       setWalletState(prev => ({ 
@@ -212,6 +272,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         connecting: false,
         connected: false 
       }));
+      // Re-throw the error so the UI can display it
       throw error;
     }
   };
@@ -253,10 +314,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
       switch (walletState.walletType) {
         case 'sui':
+        case 'slush':
           balance = await fetchSuiBalance(walletState.address);
           break;
         case 'phantom':
-        case 'solush':
           balance = await fetchSolanaBalance(walletState.address);
           break;
         default:
@@ -269,11 +330,12 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     }
   };
 
+  // Note: Real balance updates will happen through actual blockchain transactions
+  // This function is maintained for compatibility but should trigger real transactions
   const addBalance = (amount: number): void => {
-    setWalletState(prev => ({ 
-      ...prev, 
-      balance: prev.balance + amount 
-    }));
+    // console.warn('addBalance called - In production, this should trigger real wallet transactions');
+    // For now, just refresh the balance to get the latest from blockchain
+    refreshBalance();
   };
 
   // Auto-reconnect on page load

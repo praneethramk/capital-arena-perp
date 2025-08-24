@@ -91,7 +91,7 @@ export function useBluefinWS({ symbol, reconnectDelay = 3000, maxReconnectAttemp
   // Fetch market data from API
   const fetchMarketData = useCallback(async () => {
     try {
-      console.log(`Fetching market data for ${symbol}...`);
+      // console.log(`Fetching market data for ${symbol}...`);
       
       for (const baseUrl of BLUEFIN_MARKET_DATA_ENDPOINTS) {
         try {
@@ -105,18 +105,18 @@ export function useBluefinWS({ symbol, reconnectDelay = 3000, maxReconnectAttemp
           });
 
           if (!response.ok) {
-            console.log(`Failed to fetch from ${baseUrl}: ${response.status}`);
+            // console.log(`Failed to fetch from ${baseUrl}: ${response.status}`);
             continue;
           }
 
           const data = await response.json();
-          console.log(`Fetched market data from ${baseUrl}:`, data?.length, 'markets');
+          // console.log(`Fetched market data from ${baseUrl}:`, data?.length, 'markets');
           
           // Find data for our symbol
           const symbolData = data.find((item: any) => item.symbol === symbol);
           
           if (symbolData) {
-            console.log(`Found data for ${symbol}:`, symbolData);
+            // console.log(`Found data for ${symbol}:`, symbolData);
             
             // Parse prices (they come as strings with 18 decimals)
             const parsePrice = (priceStr: string | number) => {
@@ -136,7 +136,7 @@ export function useBluefinWS({ symbol, reconnectDelay = 3000, maxReconnectAttemp
             const price = lastPrice || oraclePrice || indexPrice;
             
             if (price && price > 0) {
-              console.log(`Setting price for ${symbol}: $${price.toFixed(2)}`);
+              // console.log(`Setting price for ${symbol}: $${price.toFixed(2)}`);
               setCurrentPrice(price);
               setConnected(true);
               setConnectionError(null);
@@ -162,16 +162,16 @@ export function useBluefinWS({ symbol, reconnectDelay = 3000, maxReconnectAttemp
             }
           }
           
-          console.log(`No valid data found for ${symbol} in response`);
+          // console.log(`No valid data found for ${symbol} in response`);
           
         } catch (err) {
-          console.log(`Error fetching from ${baseUrl}:`, err);
+          // console.log(`Error fetching from ${baseUrl}:`, err);
           continue;
         }
       }
       
       // If we get here, all endpoints failed or no data for symbol
-      console.log(`Failed to fetch data for ${symbol}, using fallback`);
+      // console.log(`Failed to fetch data for ${symbol}, using fallback`);
       
       // Use fallback prices based on symbol
       const fallbackPrices: Record<string, number> = {
@@ -216,7 +216,7 @@ export function useBluefinWS({ symbol, reconnectDelay = 3000, maxReconnectAttemp
   const reconnect = useCallback(() => {
     if (reconnectAttempts.current < maxReconnectAttempts) {
       reconnectAttempts.current++;
-      console.log(`Reconnecting... (attempt ${reconnectAttempts.current}/${maxReconnectAttempts})`);
+      // console.log(`Reconnecting... (attempt ${reconnectAttempts.current}/${maxReconnectAttempts})`);
       fetchMarketData();
     } else {
       setConnectionError('Max reconnection attempts reached');
@@ -226,7 +226,7 @@ export function useBluefinWS({ symbol, reconnectDelay = 3000, maxReconnectAttemp
 
   // Main effect
   useEffect(() => {
-    console.log(`Setting up WebSocket connection for ${symbol}`);
+    // console.log(`Setting up WebSocket connection for ${symbol}`);
     
     // Initial fetch
     fetchMarketData();

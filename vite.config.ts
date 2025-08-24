@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",             // allows LAN/local
     port: 8080,
+    strictPort: true,       // Force port 8080, don't fallback to other ports
     // HTTPS is handled by mkcert plugin
     proxy: {
       "/bluefin-api": {
