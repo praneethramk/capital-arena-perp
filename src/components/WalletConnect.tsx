@@ -1,9 +1,8 @@
 
 import React, { useState } from 'react';
-import { Wallet, Plus, RefreshCw, LogOut, Copy, Check, AlertCircle } from 'lucide-react';
+import { Wallet, RefreshCw, LogOut, Copy, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { useWallet, WalletType } from '@/contexts/WalletProvider';
 
 const WalletConnect = () => {
@@ -16,14 +15,11 @@ const WalletConnect = () => {
     connect,
     disconnect,
     refreshBalance,
-    addBalance,
     getWalletIcon,
     getWalletName,
   } = useWallet();
 
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showAddBalanceModal, setShowAddBalanceModal] = useState(false);
-  const [addBalanceAmount, setAddBalanceAmount] = useState('');
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -47,15 +43,6 @@ const WalletConnect = () => {
       await refreshBalance();
     } finally {
       setIsRefreshing(false);
-    }
-  };
-
-  const handleAddBalance = () => {
-    const amount = parseFloat(addBalanceAmount);
-    if (amount && amount > 0) {
-      addBalance(amount);
-      setAddBalanceAmount('');
-      setShowAddBalanceModal(false);
     }
   };
 
@@ -87,9 +74,9 @@ const WalletConnect = () => {
       description: 'Popular multi-chain wallet with Solana support' 
     },
     { 
-      type: 'solush', 
-      name: 'Solush', 
-      description: 'Secure Solana wallet with advanced features' 
+      type: 'slush', 
+      name: 'Slush', 
+      description: 'Secure Sui-based wallet with advanced features' 
     },
   ];
 
@@ -104,7 +91,7 @@ const WalletConnect = () => {
                 <span className="text-2xl">{getWalletIcon(walletType!)}</span>
                 <div>
                   <div className="text-sm font-bold text-yellow-400">
-                    {formatBalance(balance)} {walletType === 'sui' ? 'SUI' : 'SOL'}
+                    {formatBalance(balance)} {walletType === 'sui' || walletType === 'slush' ? 'SUI' : 'SOL'}
                   </div>
                   <div className="text-xs text-gray-400">
                     {getWalletName(walletType!)}
@@ -136,65 +123,6 @@ const WalletConnect = () => {
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
-
-            <Dialog open={showAddBalanceModal} onOpenChange={setShowAddBalanceModal}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-green-600/20 border-green-600/30 text-green-400 hover:bg-green-600/30"
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-gray-900 border-gray-700">
-                <DialogHeader>
-                  <DialogTitle className="text-gray-200">Add Balance</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
-                    <div className="flex items-center space-x-2">
-                      <AlertCircle className="w-4 h-4 text-yellow-400" />
-                      <span className="text-xs text-yellow-400">
-                        Demo mode: This adds virtual balance for testing
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Amount ({walletType === 'sui' ? 'SUI' : 'SOL'})
-                    </label>
-                    <Input
-                      type="number"
-                      value={addBalanceAmount}
-                      onChange={(e) => setAddBalanceAmount(e.target.value)}
-                      placeholder="Enter amount"
-                      className="bg-gray-800 border-gray-600 text-gray-200"
-                      step="0.01"
-                      min="0"
-                    />
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <Button
-                      onClick={handleAddBalance}
-                      disabled={!addBalanceAmount || parseFloat(addBalanceAmount) <= 0}
-                      className="flex-1 bg-green-600 hover:bg-green-700"
-                    >
-                      Add Balance
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowAddBalanceModal(false)}
-                      className="border-gray-600 text-gray-300"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
 
             <Button
               variant="outline"
@@ -246,11 +174,11 @@ const WalletConnect = () => {
                 </button>
               ))}
               
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mt-4">
+              <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 mt-4">
                 <div className="flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 text-blue-400" />
-                  <span className="text-xs text-blue-400">
-                    Demo wallets will be used if browser extensions aren't detected
+                  <AlertCircle className="w-4 h-4 text-orange-400" />
+                  <span className="text-xs text-orange-400">
+                    Browser wallet extensions are required for real trading
                   </span>
                 </div>
               </div>

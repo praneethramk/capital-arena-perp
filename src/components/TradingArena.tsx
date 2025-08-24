@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Zap, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, Zap, DollarSign, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import PriceChart from './PriceChart';
@@ -11,35 +11,57 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from '@/components/ui/input';
 import { useBluefinWS } from '@/hooks/useBluefinWS';
 import { useBluefinMarkets } from '@/hooks/useBluefinMarkets';
+import { useBluefinTrading } from '@/hooks/useBluefinTrading';
 import { useWallet } from '@/contexts/WalletProvider';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const TradingArena = () => {
-  console.log('TradingArena component rendering...');
   
+  // Local UI state (kept for compatibility with UI components)
   const [capital, setCapital] = useState(10000);
   const [tradeAmount, setTradeAmount] = useState(1000);
   const [leverage, setLeverage] = useState([10]);
-  const [position, setPosition] = useState<'up' | 'down' | null>(null);
-  const [pnl, setPnl] = useState(0);
-  const [entryPrice, setEntryPrice] = useState(0);
-  const [capitalInMarket, setCapitalInMarket] = useState(0);
   const [flashPnl, setFlashPnl] = useState<{ amount: number; type: 'profit' | 'loss' } | null>(null);
   const [isAddBalanceOpen, setIsAddBalanceOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState<number>(1000);
+  const [tradingError, setTradingError] = useState<string | null>(null);
+  const [tradingSuccess, setTradingSuccess] = useState<string | null>(null);
 
   // Get markets and real-time data
   const { markets, loading: marketsLoading, error: marketsError } = useBluefinMarkets();
   const { connected: walletConnected, balance: walletBalance, walletType } = useWallet();
   const [symbol, setSymbol] = useState<string>('ETH-PERP');
   
+  // Real trading integration
+  const {
+    isInitialized: tradingInitialized,
+    balance: tradingBalance,
+    positions,
+    isLoading: tradingLoading,
+    error: tradingClientError,
+    placeTrade,
+    closePosition,
+    refreshBalance: refreshTradingBalance,
+    refreshPositions,
+  } = useBluefinTrading();
+  
+  // Get the current position for this symbol
+  const currentPosition = positions.find(p => p.symbol === symbol);
+  
+  // Legacy state mapping (for UI compatibility)
+  const position = currentPosition ? (currentPosition.side === 'LONG' ? 'up' : 'down') : null;
+  const pnl = currentPosition ? currentPosition.unrealizedPnl : 0;
+  const entryPrice = currentPosition ? currentPosition.entryPrice : 0;
+  const capitalInMarket = currentPosition ? currentPosition.notionalValue : 0;
+  
   // Debug logging for markets
   useEffect(() => {
-    console.log('📊 Markets loaded:', { markets, loading: marketsLoading, error: marketsError });
+    // console.log('📊 Markets loaded:', { markets, loading: marketsLoading, error: marketsError });
   }, [markets, marketsLoading, marketsError]);
   
   useEffect(() => {
     if (markets.length && !markets.some((m) => m.symbol === symbol)) {
-      console.log('🔄 Setting symbol to first available market:', markets[0].symbol);
+      // console.log('🔄 Setting symbol to first available market:', markets[0].symbol);
       setSymbol(markets[0].symbol);
     }
   }, [markets, symbol]);
@@ -57,14 +79,14 @@ const TradingArena = () => {
   
   // Debug logging for WebSocket data
   useEffect(() => {
-    console.log('📡 WebSocket data for', symbol, ':', { 
-      connected, 
-      livePrice, 
-      marketDataFields: marketData ? Object.keys(marketData) : [],
-      tradesCount: recentTrades.length,
-      candlesCount: candles1m.length,
-      connectionError 
-    });
+    // console.log('📡 WebSocket data for', symbol, ':', { 
+    //   connected, 
+    //   livePrice, 
+    //   marketDataFields: marketData ? Object.keys(marketData) : [],
+    //   tradesCount: recentTrades.length,
+    //   candlesCount: candles1m.length,
+    //   connectionError 
+    // });
   }, [symbol, connected, livePrice, marketData, recentTrades, candles1m, connectionError]);
   
   // Use live price as the primary market price for trading
@@ -73,19 +95,18 @@ const TradingArena = () => {
   // Update trading logic when live price changes
   useEffect(() => {
     if (typeof livePrice === 'number' && !isNaN(livePrice) && livePrice > 0) {
-      console.log('💰 Live price update for', symbol, ':', livePrice);
+      // console.log('💰 Live price update for', symbol, ':', livePrice);
     }
   }, [livePrice, symbol]);
 
-  // Calculate PnL when price changes (using live price)
+  // Calculate PnL flash animation when real PnL changes
   useEffect(() => {
-    if (position && entryPrice && capitalInMarket && typeof marketPrice === 'number') {
-      const priceChange = marketPrice - entryPrice;
-      const direction = position === 'up' ? 1 : -1;
-      const newPnl = (priceChange / entryPrice) * capitalInMarket * direction;
+    if (currentPosition && typeof marketPrice === 'number' && marketPrice > 0) {
+      const newPnl = currentPosition.unrealizedPnl;
       
-      if (Math.abs(newPnl - pnl) > 10) {
-        const change = newPnl - pnl;
+      // Check if PnL changed significantly (more than $10)
+      if (Math.abs(newPnl - (currentPosition.unrealizedPnl || 0)) > 10) {
+        const change = newPnl - (currentPosition.unrealizedPnl || 0);
         setFlashPnl({
           amount: change,
           type: change > 0 ? 'profit' : 'loss'
@@ -93,39 +114,92 @@ const TradingArena = () => {
         
         setTimeout(() => setFlashPnl(null), 2000);
       }
-      
-      setPnl(newPnl);
     }
-  }, [marketPrice, position, entryPrice, capitalInMarket, pnl]);
+  }, [currentPosition, marketPrice]);
 
-  const handleTrade = (direction: 'up' | 'down') => {
-    if (position) {
-      setCapital(prev => prev + pnl);
-      setPosition(null);
-      setPnl(0);
-      setCapitalInMarket(0);
-      setEntryPrice(0);
-    } else {
-      if (typeof marketPrice !== 'number' || !marketPrice) return;
-      const commandingCapital = tradeAmount * leverage[0];
-      setPosition(direction);
-      setEntryPrice(marketPrice);
-      setCapitalInMarket(commandingCapital);
-      setCapital(prev => prev - tradeAmount);
+  // Clear messages after timeout
+  useEffect(() => {
+    if (tradingError) {
+      const timer = setTimeout(() => setTradingError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [tradingError]);
+
+  useEffect(() => {
+    if (tradingSuccess) {
+      const timer = setTimeout(() => setTradingSuccess(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [tradingSuccess]);
+
+  // Real trading function
+  const handleTrade = async (direction: 'up' | 'down') => {
+    if (!walletConnected) {
+      setTradingError('Please connect your wallet first');
+      return;
+    }
+
+    if (!tradingInitialized) {
+      setTradingError('Trading client not initialized. Please wait...');
+      return;
+    }
+
+    if (!marketPrice || marketPrice <= 0) {
+      setTradingError('Market price not available');
+      return;
+    }
+
+    try {
+      setTradingError(null);
+      setTradingSuccess(null);
+
+      if (currentPosition) {
+        // Close existing position
+        // console.log('Closing position for', symbol);
+        await closePosition(symbol);
+        setTradingSuccess(`Position closed for ${symbol}`);
+      } else {
+        // Open new position
+        const side = direction === 'up' ? 'BUY' : 'SELL';
+        const leveragedSize = tradeAmount * leverage[0] / marketPrice; // Calculate size based on notional value
+        
+        // console.log('Placing trade:', {
+        //   symbol,
+        //   side,
+        //   size: leveragedSize,
+        //   leverage: leverage[0],
+        //   price: marketPrice
+        // });
+
+        await placeTrade({
+          symbol,
+          side,
+          size: leveragedSize,
+          leverage: leverage[0],
+          orderType: 'MARKET'
+        }, marketPrice);
+        
+        setTradingSuccess(`${direction === 'up' ? 'Long' : 'Short'} position opened for ${symbol}`);
+      }
+      
+      // Refresh wallet balance after trade
+      setTimeout(() => {
+        refreshTradingBalance();
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Trade execution failed:', error);
+      setTradingError(error instanceof Error ? error.message : 'Trade execution failed');
     }
   };
 
   const handleSymbolChange = (newSymbol: string) => {
-    console.log('🔄 Changing market from', symbol, 'to', newSymbol);
+    // console.log('🔄 Changing market from', symbol, 'to', newSymbol);
     setSymbol(newSymbol);
-    // Reset position when changing markets
-    if (position) {
-      setCapital(prev => prev + pnl);
-      setPosition(null);
-      setPnl(0);
-      setCapitalInMarket(0);
-      setEntryPrice(0);
-    }
+    // Clear any error/success messages when changing symbols
+    setTradingError(null);
+    setTradingSuccess(null);
+    // Note: positions are per symbol, so no need to reset like in demo mode
   };
 
   const formatCurrency = (amount: number) => {
@@ -175,12 +249,48 @@ const TradingArena = () => {
             </span>
             <span className="text-gray-500 text-xs">•</span>
             <span className="text-gray-500 text-xs">{recentTrades.length} trades • {candles1m.length} candles</span>
+            {tradingInitialized && (
+              <>
+                <span className="text-gray-500 text-xs">•</span>
+                <span className="text-green-400 text-xs">TRADING READY</span>
+              </>
+            )}
           </div>
         </div>
         <div className="absolute top-8 right-6">
           <WalletConnect />
         </div>
       </div>
+
+      {/* Trading Status Messages */}
+      {(tradingError || tradingSuccess || tradingClientError) && (
+        <div className="px-6 pt-4">
+          {tradingError && (
+            <Alert className="border-red-600/30 bg-red-900/20 mb-4">
+              <AlertTriangle className="h-4 w-4 text-red-400" />
+              <AlertDescription className="text-red-400">
+                {tradingError}
+              </AlertDescription>
+            </Alert>
+          )}
+          {tradingSuccess && (
+            <Alert className="border-green-600/30 bg-green-900/20 mb-4">
+              <CheckCircle className="h-4 w-4 text-green-400" />
+              <AlertDescription className="text-green-400">
+                {tradingSuccess}
+              </AlertDescription>
+            </Alert>
+          )}
+          {tradingClientError && (
+            <Alert className="border-orange-600/30 bg-orange-900/20 mb-4">
+              <XCircle className="h-4 w-4 text-orange-400" />
+              <AlertDescription className="text-orange-400">
+                Trading Client Error: {tradingClientError}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
 
       {/* Main Layout */}
       <div className="grid grid-cols-12 gap-6 p-6 min-h-[calc(100vh-140px)]">
@@ -382,28 +492,29 @@ const TradingArena = () => {
               <>
                 <Button
                   onClick={() => handleTrade('up')}
-                  disabled={tradeAmount <= 0 || tradeAmount > capital || typeof marketPrice !== 'number'}
+                  disabled={!walletConnected || !tradingInitialized || tradingLoading || tradeAmount <= 0 || typeof marketPrice !== 'number'}
                   className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <TrendingUp className="mr-3 h-8 w-8" />
-                  THRUST UP
+                  {tradingLoading ? 'PROCESSING...' : 'THRUST UP'}
                 </Button>
                 <Button
                   onClick={() => handleTrade('down')}
-                  disabled={tradeAmount <= 0 || tradeAmount > capital || typeof marketPrice !== 'number'}
+                  disabled={!walletConnected || !tradingInitialized || tradingLoading || tradeAmount <= 0 || typeof marketPrice !== 'number'}
                   className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <TrendingDown className="mr-3 h-8 w-8" />
-                  THRUST DOWN
+                  {tradingLoading ? 'PROCESSING...' : 'THRUST DOWN'}
                 </Button>
               </>
             ) : (
               <Button
                 onClick={() => handleTrade(position)}
-                className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 transition-all duration-200 transform hover:scale-105"
+                disabled={!walletConnected || !tradingInitialized || tradingLoading}
+                className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <DollarSign className="mr-3 h-8 w-8" />
-                EXIT POSITION
+                {tradingLoading ? 'CLOSING...' : 'EXIT POSITION'}
               </Button>
             )}
           </div>

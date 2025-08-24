@@ -1,26 +1,25 @@
 {
-  "name": "bluefin-trading-platform",
+  "name": "trading-platform",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Professional Perpetual Futures Trading Platform on Sui Blockchain",
+  "description": "Professional Perpetual Futures Trading Platform",
   "keywords": [
-    "bluefin",
     "trading",
     "perpetual futures",
     "sui",
     "defi",
     "cryptocurrency"
   ],
-  "author": "Bluefin Trading Platform",
+  "author": "Trading Platform",
   "scripts": {
     "dev": "vite --host :: --port 8080",
-    "dev:https": "vite --host :: --port 8080 --https",
+    "dev:https": "vite --host :: --port 8080",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview --host :: --port 8080",
-    "preview:https": "vite preview --host :: --port 8080 --https",
+    "preview:https": "vite preview --host :: --port 8080",
     "start": "npm run dev",
     "clean": "rm -rf dist node_modules/.vite",
     "deploy": "npm run build && vercel --prod"
